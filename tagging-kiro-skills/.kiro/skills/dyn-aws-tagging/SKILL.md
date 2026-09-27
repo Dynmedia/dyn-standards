@@ -114,16 +114,24 @@ Both use the same six keys and allowed values, so they agree.
    lives in the `security-account` repo (`modules/aws-config`).
 
 2. **Organization tag policy (preventive).** Policy `Organization-Wide-Tagging`
-   (`p-957g5s40o6`), managed from the management account `660571558619`. When
-   enforced, it BLOCKS a tagging operation that sets a non-compliant VALUE, for
-   the resource types it enforces. Code lives in the `shahriar-sajib` repo
-   (`Tagging/`).
+   (`p-957g5s40o6`), managed from the management account `660571558619`.
+   **Enforcement is LIVE.** It BLOCKS any create/tag call that sets a
+   non-compliant VALUE for `Project`, `Environment`, `Stage`,
+   `DataClassification`, or `Compliance`, across 53 AWS services
+   (`<service>:ALL_SUPPORTED` - every resource type in those services that
+   supports tag-policy enforcement). It is attached to every in-scope OU and
+   account (16 targets), not the root. Code lives in the `shahriar-sajib` repo
+   (`Tagging/`); state is in S3 in the management account.
 
 Two things the tag policy does NOT do, worth knowing:
 
 - It does **not** block untagged resources - only wrong values on tagged ones.
   (Blocking untagged creation would need an SCP.)
 - `Owner` is presence-only, so its value is never enforced.
+- Services outside the 53 enforced ones (or resource types AWS does not
+  support for enforcement) are not blocked - Config still reports them.
+- Existing resources with bad values are not changed or deleted; the next
+  tagging call on them must use a valid value.
 
 ## Scope: who is covered
 
@@ -134,9 +142,13 @@ scope. A newly created account is in scope by default.
 
 ## "My resource is flagged / my tagging call was rejected" - triage
 
-1. **Rejected at create/tag time?** That is the tag policy enforcing a VALUE.
-   Check the value against the table above - most often it is `Environment=dev`
-   (use `development`) or a `Project` value not in the allowed list.
+1. **Rejected at create/tag time?** That is the tag policy enforcing a VALUE
+   (typical error: `TagPolicyViolation` / "tags ... do not comply with the tag
+   policy"; in Terraform the whole apply fails on that resource). Check the
+   value against the table above - most often it is `Environment=dev` (use
+   `development`) or a `Project` value not in the allowed list. Fix the value
+   (ideally in provider `default_tags`) and re-run. Excluded accounts never see
+   this.
 2. **Flagged non-compliant in Config but created fine?** That is detection. Add
    the missing keys / fix the value; it re-evaluates automatically.
 3. **Key present but still failing?** Check case (PascalCase) and for an empty
