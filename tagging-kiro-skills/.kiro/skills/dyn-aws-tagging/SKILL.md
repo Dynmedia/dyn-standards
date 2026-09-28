@@ -172,7 +172,10 @@ aws s3api put-bucket-tagging --bucket my-bucket --tagging 'TagSet=[
 
 ## How this is governed (two mechanisms)
 
-Both use the same six keys and allowed values, so they agree.
+Both use the same six keys and allowed values, so they agree. The optional
+`AIWorkload` key is only in the tag policy: Config doesn't check it, so a
+missing or wrong `AIWorkload` is never reported by Config (a wrong value is
+still blocked by the tag policy).
 
 1. **AWS Config rules (detective).** Deployed org-wide from the delegated Config
    admin account `754348400096` (region `eu-central-1`). Rule
@@ -208,13 +211,23 @@ Two things the tag policy does NOT do, worth knowing:
 Governance applies **organization-wide except six accounts**:
 `dyn-contentdesk-prod`, `dyn-contentdesk-dev`, `dyn-contentdesk-stg`,
 `dyn-deltatreaxis-prod`, `voscustomer1002.vos`, `dyn-mmo`. Everything else is in
-scope. A newly created account is in scope by default.
+scope.
+
+New accounts:
+
+- **AWS Config** monitors every new account automatically.
+- **The tag policy** covers a new account only if it lands in one of the 13
+  OUs the policy is attached to. A new OU, the Contentdesk OU, or the
+  organization root gets **no** tag enforcement until it is added to the
+  attachment list in `shahriar-sajib/Tagging`. Moving an account into the
+  Contentdesk OU or to the root removes its enforcement.
 
 ## "My resource is flagged / my tagging call was rejected" - triage
 
 1. **Rejected at create/tag time?** That is the tag policy enforcing a VALUE
-   (typical error: `TagPolicyViolation` / "tags ... do not comply with the tag
-   policy"; in Terraform the whole apply fails on that resource). Check the
+   (exact error: `TagPolicyError: The tag policy does not allow the specified
+   value for the following tag key: '<Key>'.`; in Terraform the apply fails on
+   that resource). Check the
    value against the table above - most often it is `Environment=dev` (use
    `development`) or a `Project` value not in the allowed list. Fix the value
    (ideally in provider `default_tags`) and re-run. Excluded accounts never see
