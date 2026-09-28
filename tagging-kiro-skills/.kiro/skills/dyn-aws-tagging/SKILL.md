@@ -116,8 +116,8 @@ Both use the same six keys and allowed values, so they agree.
 2. **Organization tag policy (preventive).** Policy `Organization-Wide-Tagging`
    (`p-957g5s40o6`), managed from the management account `660571558619`.
    **Enforcement is LIVE.** It BLOCKS any create/tag call that sets a
-   non-compliant VALUE for `Project`, `Environment`, `Stage`,
-   `DataClassification`, or `Compliance`, across 53 AWS services
+   non-compliant VALUE for `Project`, `Environment`, `Stage`, `CostCenter`,
+   or `Team` (every key except `Owner`), across 53 AWS services
    (`<service>:ALL_SUPPORTED` - every resource type in those services that
    supports tag-policy enforcement). It is attached to every in-scope OU and
    account (16 targets), not the root. Code lives in the `shahriar-sajib` repo
