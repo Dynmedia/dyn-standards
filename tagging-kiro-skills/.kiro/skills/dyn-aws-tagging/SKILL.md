@@ -5,8 +5,10 @@ description: >-
   someone asks how to tag AWS resources at Dyn, what the required tags or
   allowed values are, why their resource is flagged non-compliant, what the
   AWS Config tagging rules or the organization tag policy do, or who owns AWS
-  tagging/governance. Covers the six-key standard, Terraform/CLI examples,
-  enforcement behaviour, exclusions, and contacts.
+  tagging/governance. Also covers the optional AIWorkload tag for classifying
+  AI resources and AI cost attribution. Covers the six-key standard, the
+  AIWorkload classification tag, Terraform/CLI examples, enforcement behaviour,
+  exclusions, and contacts.
 ---
 
 # Dyn AWS Tagging
@@ -37,6 +39,72 @@ Rules that trip people up:
   common mistake and is INVALID.
 - **Empty values fail.** A key present with `""` is non-compliant and cannot be
   whitelisted.
+
+## Optional: `AIWorkload` — classify AI resources
+
+`AIWorkload` is a **7th, OPTIONAL** tag. It is **not** part of the six-key
+"tag everything" standard — apply it **only to AI resources**, in addition to
+the six keys.
+
+| Key | Allowed values | Notes |
+|-----|----------------|-------|
+| `AIWorkload` | `developer`, `product`, `platform` | optional; AI resources only; PascalCase key, exact-match values |
+
+- `developer` — internal dev/tooling AI (copilots, experimentation, AI dev infra)
+- `product` — AI embedded in a customer-facing product
+- `platform` — shared AI infrastructure (model hosting, knowledge bases, gateways)
+
+Why it exists: it powers **AI cost attribution** — spend on AI resources is
+grouped into developer / product / platform in Cost Explorer, and drives the AI
+budget alerts. Combined with `Project` / `Product`, it answers "how much AI, for
+which product, and is it dev or production?"
+
+When to apply it:
+
+- **Only when a resource is genuinely AI** and is *taggable* — e.g. SageMaker
+  endpoints/jobs, Bedrock agents / knowledge bases / provisioned throughput,
+  EC2/ECS/EKS hosting your own models.
+- **Not** on ordinary resources. A non-AI S3 bucket or RDS instance should not
+  carry `AIWorkload`.
+- Note: usage-based AI with no resource (e.g. on-demand Bedrock model calls,
+  SaaS AI subscriptions) **cannot** be tagged; that spend is attributed by
+  account instead, not by this tag.
+
+Governance: like every key in the tag policy, its **value** is validated when
+present (only `developer`/`product`/`platform` are allowed), but its **presence
+is never required** — non-AI resources are simply not evaluated for it.
+
+Example (AI resource — six keys PLUS AIWorkload):
+
+```hcl
+resource "aws_sagemaker_endpoint" "inference" {
+  # ...
+  tags = {
+    Owner       = "you@dynmedia.com"
+    Environment = "production"
+    Project     = "business-intelligence"
+    CostCenter  = "product-and-tech"
+    Stage       = "prod"
+    Team        = "dcc"
+    AIWorkload  = "product" # <- only because this is an AI resource
+  }
+}
+```
+
+### For Kiro: applying `AIWorkload` when generating AI infrastructure
+
+When you (Kiro) scaffold or modify a **taggable AI resource** (SageMaker,
+Bedrock agent/knowledge base/provisioned throughput, or compute whose purpose is
+hosting/serving a model), add `AIWorkload` alongside the six standard tags:
+
+- Choose the value from context: internal tooling/experimentation → `developer`;
+  customer-facing product feature → `product`; shared AI infra used by several
+  teams → `platform`.
+- If the intent is ambiguous, **ask the user which of developer/product/platform
+  applies** rather than guessing.
+- Do **not** add `AIWorkload` to non-AI resources.
+- Prefer setting it in provider `default_tags` only when the whole stack is AI;
+  otherwise set it per AI resource.
 
 ## How to tag (copy-paste)
 
@@ -119,8 +187,10 @@ Both use the same six keys and allowed values, so they agree.
    non-compliant VALUE for `Project`, `Environment`, `Stage`, `CostCenter`,
    or `Team` (every key except `Owner`), across 53 AWS services
    (`<service>:ALL_SUPPORTED` - every resource type in those services that
-   supports tag-policy enforcement). It is attached to every in-scope OU and
-   account (16 targets), not the root. Code lives in the `shahriar-sajib` repo
+   supports tag-policy enforcement). The optional `AIWorkload` key is governed
+   the same way: if present, its value must be `developer`/`product`/`platform`;
+   it is never required. It is attached to every in-scope OU and account (16
+   targets), not the root. Code lives in the `shahriar-sajib` repo
    (`Tagging/`); state is in S3 in the management account.
 
 Two things the tag policy does NOT do, worth knowing:
