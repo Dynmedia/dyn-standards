@@ -11,7 +11,7 @@ tagging-kiro-skills/
 ```
 
 `SKILL.md` is the single source of truth for AWS tagging at Dyn: the six-key
-standard and allowed values, the optional `AIWorkload` tag for AI resources
+standard and allowed values, the optional `aiworkload` tag for AI resources
 (`developer`/`product`/`platform`), Terraform/CLI how-to, why tagging matters, how
 governance works (AWS Config detection + the organization tag policy), the
 org-wide-minus-6 scope, a "my resource is flagged / rejected" triage guide,
@@ -39,9 +39,9 @@ Two ways to make Kiro pick it up:
 
 Then just ask Kiro things like:
 - "How do I tag my S3 bucket at Dyn?"
-- "What are the allowed Environment values?"
+- "What are the allowed environment values?"
 - "Why was my tagging call rejected?"
-- "Which AIWorkload value should my SageMaker endpoint have?"
+- "Which aiworkload value should my SageMaker endpoint have?"
 
 ## Keeping it current
 
