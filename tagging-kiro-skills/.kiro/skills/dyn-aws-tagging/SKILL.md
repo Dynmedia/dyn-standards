@@ -179,8 +179,8 @@ still blocked by the tag policy).
 
 1. **AWS Config rules (detective).** Deployed org-wide from the delegated Config
    admin account `754348400096` (region `eu-central-1`). Rule
-   `ou_rzmo_bjyh9b48_required_tags` reports resources missing keys or using bad
-   values; `ou_rzmo_bjyh9b48_acm_certificate_expiration` warns 7 days before a
+   `org_wide_required_tags` reports resources missing keys or using bad
+   values; `org_wide_acm_certificate_expiration` warns 7 days before a
    TLS cert expires. Detection and email/CloudWatch only - never blocks. Code
    lives in the `security-account` repo (`modules/aws-config`).
 
