@@ -5,9 +5,9 @@ description: >-
   someone asks how to tag AWS resources at Dyn, what the required tags or
   allowed values are, why their resource is flagged non-compliant, what the
   AWS Config tagging rules or the organization tag policy do, or who owns AWS
-  tagging/governance. Also covers the optional aiworkload tag for classifying
+  tagging/governance. Also covers the optional dyn-aiworkload tag for classifying
   AI resources and AI cost attribution. Covers the six-key standard, the
-  aiworkload classification tag, Terraform/CLI examples, enforcement behaviour,
+  dyn-aiworkload classification tag, Terraform/CLI examples, enforcement behaviour,
   exclusions, and contacts.
 ---
 
@@ -21,37 +21,38 @@ tagging call is rejected, the answer is here.
 
 | Key | Allowed values | Notes |
 |-----|----------------|-------|
-| `owner` | any value (an email is best) | presence only; who to contact |
-| `environment` | `production`, `development`, `integration`, `staging`, `sandbox`, `shared`, `security`, `tools`, `management`, `sit` | long forms |
-| `project` | `networking`, `connectivity`, `shared-services`, `security-hub`, `audit`, `log-archive`, `infra-tools`, `api-toolkit`, `fast`, `business-intelligence`, `contentdesk`, `mimir-fileflows`, `blog`, `account-factory` | |
-| `costcenter` | `product-and-tech`, `editorial-team` | |
-| `stage` | `prod`, `dev`, `int`, `staging` | short forms |
-| `team` | `dcc`, `infra` | |
+| `dyn-owner` | any value (an email is best) | presence only; who to contact |
+| `dyn-environment` | `production`, `development`, `integration`, `staging`, `sandbox`, `shared`, `security`, `tools`, `management`, `sit` | long forms |
+| `dyn-project` | `networking`, `connectivity`, `shared-services`, `security-hub`, `audit`, `log-archive`, `infra-tools`, `api-toolkit`, `fast`, `business-intelligence`, `contentdesk`, `mimir-fileflows`, `blog`, `account-factory` | |
+| `dyn-costcenter` | `product-and-tech`, `editorial-team` | |
+| `dyn-stage` | `prod`, `dev`, `int`, `staging` | short forms |
+| `dyn-team` | `dcc`, `infra` | |
 
 Rules that trip people up:
 
-- **Keys are lowercase and case-sensitive.** `costcenter` is right;
-  `costcenter` / `cost-center` are different (wrong) keys. Same for all seven:
-  `owner`, `environment`, `project`, `costcenter`, `stage`, `team`,
-  `aiworkload`. (Until Sep 2026 the standard was PascalCase; those keys are
-  now non-compliant.)
+- **Keys are lowercase with a `dyn-` prefix, and matched exactly.**
+  `dyn-costcenter` is right; `dyn-costcenter`, `CostCenter` and `dyn-CostCenter`
+  are different (wrong) keys. All seven: `dyn-owner`, `dyn-environment`,
+  `dyn-project`, `dyn-costcenter`, `dyn-stage`, `dyn-team`, `dyn-aiworkload`.
+  (The standard was PascalCase until Sep 2026 and unprefixed lowercase until
+  Oct 2026; both old forms are now non-compliant.)
 - **Values are matched exactly.** No trimming, no case-folding. `Production` is
   not `production`.
-- **`environment` vs `stage` use different vocabularies.** `environment` uses
-  long forms (`development`), `stage` uses short (`dev`). `environment=dev` is a
+- **`dyn-environment` vs `dyn-stage` use different vocabularies.** `dyn-environment` uses
+  long forms (`development`), `dyn-stage` uses short (`dev`). `dyn-environment=dev` is a
   common mistake and is INVALID.
 - **Empty values fail.** A key present with `""` is non-compliant and cannot be
   whitelisted.
 
-## Optional: `aiworkload` — classify AI resources
+## Optional: `dyn-aiworkload` — classify AI resources
 
-`aiworkload` is a **7th, OPTIONAL** tag. It is **not** part of the six-key
+`dyn-aiworkload` is a **7th, OPTIONAL** tag. It is **not** part of the six-key
 "tag everything" standard — apply it **only to AI resources**, in addition to
 the six keys.
 
 | Key | Allowed values | Notes |
 |-----|----------------|-------|
-| `aiworkload` | `developer`, `product`, `platform` | optional; AI resources only; lowercase key, exact-match values |
+| `dyn-aiworkload` | `developer`, `product`, `platform` | optional; AI resources only; lowercase `dyn-` key, exact-match values |
 
 - `developer` — internal dev/tooling AI (copilots, experimentation, AI dev infra)
 - `product` — AI embedded in a customer-facing product
@@ -59,7 +60,7 @@ the six keys.
 
 Why it exists: it powers **AI cost attribution** — spend on AI resources is
 grouped into developer / product / platform in Cost Explorer, and drives the AI
-budget alerts. Combined with `project`, it answers "how much AI, for
+budget alerts. Combined with `dyn-project`, it answers "how much AI, for
 which product, and is it dev or production?"
 
 When to apply it:
@@ -68,7 +69,7 @@ When to apply it:
   endpoints/jobs, Bedrock agents / knowledge bases / provisioned throughput,
   EC2/ECS/EKS hosting your own models.
 - **Not** on ordinary resources. A non-AI S3 bucket or RDS instance should not
-  carry `aiworkload`.
+  carry `dyn-aiworkload`.
 - Note: usage-based AI with no resource (e.g. on-demand Bedrock model calls,
   SaaS AI subscriptions) **cannot** be tagged; that spend is attributed by
   account instead, not by this tag.
@@ -77,35 +78,35 @@ Governance: like every key in the tag policy, its **value** is validated when
 present (only `developer`/`product`/`platform` are allowed), but its **presence
 is never required** — non-AI resources are simply not evaluated for it.
 
-Example (AI resource — six keys PLUS aiworkload):
+Example (AI resource — six keys PLUS dyn-aiworkload):
 
 ```hcl
 resource "aws_sagemaker_endpoint" "inference" {
   # ...
   tags = {
-    owner       = "you@dynmedia.com"
-    environment = "production"
-    project     = "business-intelligence"
-    costcenter  = "product-and-tech"
-    stage       = "prod"
-    team        = "dcc"
-    aiworkload  = "product" # <- only because this is an AI resource
+    "dyn-owner"       = "you@dynmedia.com"
+    "dyn-environment" = "production"
+    "dyn-project"     = "business-intelligence"
+    "dyn-costcenter"  = "product-and-tech"
+    "dyn-stage"       = "prod"
+    "dyn-team"        = "dcc"
+    "dyn-aiworkload"  = "product" # <- only because this is an AI resource
   }
 }
 ```
 
-### For Kiro: applying `aiworkload` when generating AI infrastructure
+### For Kiro: applying `dyn-aiworkload` when generating AI infrastructure
 
 When you (Kiro) scaffold or modify a **taggable AI resource** (SageMaker,
 Bedrock agent/knowledge base/provisioned throughput, or compute whose purpose is
-hosting/serving a model), add `aiworkload` alongside the six standard tags:
+hosting/serving a model), add `dyn-aiworkload` alongside the six standard tags:
 
 - Choose the value from context: internal tooling/experimentation → `developer`;
   customer-facing product feature → `product`; shared AI infra used by several
   teams → `platform`.
 - If the intent is ambiguous, **ask the user which of developer/product/platform
   applies** rather than guessing.
-- Do **not** add `aiworkload` to non-AI resources.
+- Do **not** add `dyn-aiworkload` to non-AI resources.
 - Prefer setting it in provider `default_tags` only when the whole stack is AI;
   otherwise set it per AI resource.
 
@@ -116,12 +117,12 @@ hosting/serving a model), add `aiworkload` alongside the six standard tags:
 resource "aws_s3_bucket" "example" {
   bucket = "my-bucket"
   tags = {
-    owner       = "you@dynmedia.com"
-    environment = "production"
-    project     = "shared-services"
-    costcenter  = "product-and-tech"
-    stage       = "prod"
-    team        = "infra"
+    "dyn-owner"       = "you@dynmedia.com"
+    "dyn-environment" = "production"
+    "dyn-project"     = "shared-services"
+    "dyn-costcenter"  = "product-and-tech"
+    "dyn-stage"       = "prod"
+    "dyn-team"        = "infra"
   }
 }
 ```
@@ -132,12 +133,12 @@ provider "aws" {
   region = "eu-central-1"
   default_tags {
     tags = {
-      owner       = "you@dynmedia.com"
-      environment = "development"
-      project     = "infra-tools"
-      costcenter  = "product-and-tech"
-      stage       = "dev"
-      team        = "infra"
+      "dyn-owner"       = "you@dynmedia.com"
+      "dyn-environment" = "development"
+      "dyn-project"     = "infra-tools"
+      "dyn-costcenter"  = "product-and-tech"
+      "dyn-stage"       = "dev"
+      "dyn-team"        = "infra"
     }
   }
 }
@@ -146,38 +147,38 @@ provider "aws" {
 ### CLI
 ```bash
 aws ec2 create-tags --resources i-0123456789abcdef0 \
-  --tags Key=owner,Value=you@dynmedia.com \
-         Key=environment,Value=production \
-         Key=project,Value=shared-services \
-         Key=costcenter,Value=product-and-tech \
-         Key=stage,Value=prod \
-         Key=team,Value=infra
+  --tags Key=dyn-owner,Value=you@dynmedia.com \
+         Key=dyn-environment,Value=production \
+         Key=dyn-project,Value=shared-services \
+         Key=dyn-costcenter,Value=product-and-tech \
+         Key=dyn-stage,Value=prod \
+         Key=dyn-team,Value=infra
 
 # S3 put-bucket-tagging REPLACES the whole tag set - include every tag.
 aws s3api put-bucket-tagging --bucket my-bucket --tagging 'TagSet=[
-  {Key=owner,Value=you@dynmedia.com},
-  {Key=environment,Value=development},
-  {Key=project,Value=business-intelligence},
-  {Key=costcenter,Value=editorial-team},
-  {Key=stage,Value=dev},
-  {Key=team,Value=dcc}]'
+  {Key=dyn-owner,Value=you@dynmedia.com},
+  {Key=dyn-environment,Value=development},
+  {Key=dyn-project,Value=business-intelligence},
+  {Key=dyn-costcenter,Value=editorial-team},
+  {Key=dyn-stage,Value=dev},
+  {Key=dyn-team,Value=dcc}]'
 ```
 
 ## Why tagging (the short version)
 
-- **Cost:** `project` + `costcenter` are the only way spend is attributed and
+- **Cost:** `dyn-project` + `dyn-costcenter` are the only way spend is attributed and
   charged back. No tags = unallocated cost.
-- **Ownership:** `owner` is who to contact in an incident or cleanup. Untagged
+- **Ownership:** `dyn-owner` is who to contact in an incident or cleanup. Untagged
   resources become orphans nobody dares delete.
-- **Environment segregation:** `environment` / `stage` drive change control,
+- **Environment segregation:** `dyn-environment` / `dyn-stage` drive change control,
   backup, and alerting.
 - **Operations:** consistent tags make inventory and automation possible.
 
 ## How this is governed (two mechanisms)
 
 Both use the same six keys and allowed values, so they agree. The optional
-`aiworkload` key is only in the tag policy: Config doesn't check it, so a
-missing or wrong `aiworkload` is never reported by Config (a wrong value is
+`dyn-aiworkload` key is only in the tag policy: Config doesn't check it, so a
+missing or wrong `dyn-aiworkload` is never reported by Config (a wrong value is
 still blocked by the tag policy).
 
 1. **AWS Config rules (detective).** Deployed org-wide from the delegated Config
@@ -190,12 +191,12 @@ still blocked by the tag policy).
 2. **Organization tag policy (preventive).** Policy `Organization-Wide-Tagging`
    (`p-957g5s40o6`), managed from the management account `660571558619`.
    **Enforcement is currently OFF (observe-only)** while the org moves to
-   lowercase keys; non-compliant tags are reported, not blocked. When it is
+   `dyn-` keys; non-compliant tags are reported, not blocked. When it is
    switched on it BLOCKS any create/tag call that sets a non-compliant VALUE
-   for `project`, `environment`, `stage`, `costcenter`, `team` or
-   `aiworkload` (every key except `owner`), across 53 AWS services
+   for `dyn-project`, `dyn-environment`, `dyn-stage`, `dyn-costcenter`, `dyn-team` or
+   `dyn-aiworkload` (every key except `dyn-owner`), across 53 AWS services
    (`<service>:ALL_SUPPORTED` - every resource type in those services that
-   supports tag-policy enforcement). The optional `aiworkload` key is governed
+   supports tag-policy enforcement). The optional `dyn-aiworkload` key is governed
    the same way: if present, its value must be `developer`/`product`/`platform`;
    it is never required. It is attached to every in-scope OU and account (16
    targets), not the root. Code lives in the `shahriar-sajib` repo
@@ -205,7 +206,7 @@ Two things the tag policy does NOT do, worth knowing:
 
 - It does **not** block untagged resources - only wrong values on tagged ones.
   (Blocking untagged creation would need an SCP.)
-- `owner` is presence-only, so its value is never enforced.
+- `dyn-owner` is presence-only, so its value is never enforced.
 - Services outside the 53 enforced ones (or resource types AWS does not
   support for enforcement) are not blocked - Config still reports them.
 - Existing resources with bad values are not changed or deleted; the next
@@ -233,14 +234,14 @@ New accounts:
    (exact error: `TagPolicyError: The tag policy does not allow the specified
    value for the following tag key: '<Key>'.`; in Terraform the apply fails on
    that resource). Check the
-   value against the table above - most often it is `environment=dev` (use
-   `development`) or a `project` value not in the allowed list. Fix the value
+   value against the table above - most often it is `dyn-environment=dev` (use
+   `development`) or a `dyn-project` value not in the allowed list. Fix the value
    (ideally in provider `default_tags`) and re-run. Excluded accounts never see
    this.
 2. **Flagged non-compliant in Config but created fine?** That is detection. Add
    the missing keys / fix the value; it re-evaluates automatically.
-3. **Key present but still failing?** Check case (keys must be lowercase,
-   e.g. `environment`, not `environment`) and for an empty value.
+3. **Key present but still failing?** Check the key spelling (lowercase with the
+   `dyn-` prefix: `dyn-environment`, not `environment` or `Environment`) and for an empty value.
 4. **Value genuinely missing from the allowed list** (e.g. a real new project)?
    That is a standard change - raise it with the owners below, do not work
    around it by using a wrong value.
@@ -248,8 +249,8 @@ New accounts:
 ## Best practices
 
 - Set the six tags once via provider `default_tags` rather than per resource.
-- Put a real email in `owner`, not a team slug or placeholder.
-- Keep `environment` (long) and `stage` (short) consistent with each other
+- Put a real email in `dyn-owner`, not a team slug or placeholder.
+- Keep `dyn-environment` (long) and `dyn-stage` (short) consistent with each other
   (`production`/`prod`, `development`/`dev`, `integration`/`int`).
 - New account? It is monitored automatically - tag from day one.
 - Need a new allowed value? Change the standard, do not misuse an existing one.
@@ -264,7 +265,7 @@ New accounts:
   management account `660571558619`.
 - **Compliance notifications:** SNS topic `config-compliance-notifications`.
 
-> Key case changed to lowercase in Sep 2026 (tag policy in `shahriar-sajib`,
+> Keys renamed to the `dyn-` prefix in Oct 2026 (lowercase since Sep 2026) (tag policy in `shahriar-sajib`,
 > Config rule in `security-account`).
 
 > Keep this file the source of truth. If the standard changes (new allowed
